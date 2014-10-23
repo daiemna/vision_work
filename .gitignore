@@ -28,4 +28,5 @@
 *.app
 
 # matlab files
+/aux/
 *.m
