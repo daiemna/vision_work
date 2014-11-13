@@ -12,13 +12,11 @@ int (*similarityFunction)(Mat,Mat,float*),
 OutputArray sortedIndexList){
 
 	long listLength = imageList->size();
-	// cout << "imageList Size: " << listLength << endl;
 	Mat unsortedList;
 	float similarityValue;
 	int err_code;
 	for(Mat image_2 : *imageList){
 		similarityValue = 0.0;
-		// cout << "image_2 size" << image_2.rows * image_2.cols << endl;
 		if((err_code = similarityFunction(image,image_2,&(similarityValue) )) != 0){
 			if(DEBUG)
 				cerr << "similarityFunction returned: " << err_code << endl;

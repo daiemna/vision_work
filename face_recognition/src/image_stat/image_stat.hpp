@@ -14,10 +14,11 @@ using namespace cv;
 using namespace std;
 namespace image_stat {
 
-	#define ERROR_MI_IMAGE_DATA -44 
-	#define ERROR_MI_IMAGE_MISALIGNED -14
+	#define ERROR_IMAGE_DATA -44 
+	#define ERROR_IMAGE_MISALIGNED -14
 
 	int mutual_information(Mat image_1,Mat image_2,float *mi);
+	int cross_correlation(Mat image_1,Mat image_2,float *corr);
 	
 } // image_stat
 

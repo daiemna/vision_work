@@ -30,31 +30,46 @@ using namespace std_conversion;
 // using namespace CvPlot;
 
 int test(int argc, char** argv);
-int make_image_pair(string dir);
+int make_image_pair(int,char**);
 int evaluate_pairs(int argc,char** argv);
+int test_matchTemplate(int,char**);
+
 int genrate_roc_data(const PRESISSION  thresh,size_t pos_count,size_t neg_count,Mat& r_val_list,Mat& label_list,PRESISSION& TPR, PRESISSION& FPR, PRESISSION& ACC);
 int plot2D(Mat &x,Mat &y,Mat& z);
+
 // PlotManager pm;
 
+ofstream log_file;
+
+// #define cout log_file
+
 int main(int argc, char** argv) {
-	// test(argc,argv);
-	// make_image_pair(argv[1]);
-	// pm();
+	log_file.open("log.txt");
+
+	
 	if(DEBUG)
 		cout << "in main" << endl;
 	if(DEBUG)
 		cout << "int bytes : " << sizeof(unsigned int)<< endl;
 
 	evaluate_pairs(argc,argv);
+	// test(argc,argv);
+	// make_image_pair(argc, argv);
+	// pm();
+
+	// test_matchTemplate(argc,argv);
+	log_file.close();
 	waitKey(0);
 }
 
 int evaluate_pairs(int argc,char** argv){
+	int max_pairs = 100;
+
 	if(DEBUG)
 		cout << "in evaluate_pairs" << endl;
-	int max_pairs = 100;
 	if(DEBUG)
-		cout << "argc : "<< argc << endl; 
+		cout << "argc : "<< argc << endl;
+
 	if(argc == 3){
 		max_pairs = atoi(argv[2]);
 	}
@@ -66,8 +81,9 @@ int evaluate_pairs(int argc,char** argv){
 	
 	if(DEBUG)
 		cout << "file: " << argv[1] << endl;
+
 	string file_1,file_2,label,r_val;
-	fin.open(argv[1]);
+	fin.open(strcat(argv[1],".txt"));
 	PRESISSION relevance;
 	unsigned int pair_label;
 	double min_val,max_val;
@@ -91,43 +107,43 @@ int evaluate_pairs(int argc,char** argv){
 	positivePairs_count = one_sum.at<PRESISSION>(0,0);
 	negtivePairs_count = label_list.total() - positivePairs_count;
 
-	if(DEBUG){
+	// if(DEBUG){
 		cout << "positivePairs_count : " << positivePairs_count << endl;
 		cout << "negtivePairs_count : " << negtivePairs_count << endl;
 		cout << "r_val_list : " << label_list.size().area() << endl;
 		cout << "min , max : " << (float)min_val << ", " << (float)max_val << endl;
-	}
+	// }
 	  
 	// Mat thresh_list;
 	PRESISSION tpr,fpr,acc;
 	tpr = fpr = acc = 0.0;
 
 	int ind = 0;
-	PRESISSION thresh_jump = 100;
+	PRESISSION thresh_jump = 10;
 	/*****************************************************/
 	/*CAREFULLY UNDERSTAND the dimmentions of each matrix*/
 	/*****************************************************/
-	// size_t sample_count = cvRound((max_val - min_val )/ thresh_jump);
+	size_t sample_count = cvRound((max_val - min_val )/ thresh_jump);
 	 // size_t sample_count = r_val_list.total();
-	Mat tpr_list(r_val_list.size(),CV_32F),
-	fpr_list(r_val_list.size(),1,CV_32F),
-	acc_list(r_val_list.size(),1,CV_32F);
+	Mat tpr_list(sample_count,1,CV_32F),
+	fpr_list(sample_count,1,CV_32F),
+	acc_list(sample_count,1,CV_32F);
 
-	for(PRESISSION thresh = (float)min_val; thresh <= (float)max_val ; thresh += thresh_jump, ind++){
+	for(PRESISSION thresh = (PRESISSION)min_val; thresh <= (PRESISSION)max_val ; thresh += thresh_jump, ind++){
 		// cout << "thresh : " << thresh << endl;
 		genrate_roc_data(thresh,positivePairs_count,negtivePairs_count,r_val_list,label_list,tpr,fpr,acc);
-		// cout << "tpr : " << tpr <<  endl;
-		// cout << "fpr : " << fpr <<  endl;
-		// cout << "acc : " << acc <<  endl;
+		// log_file << "tpr : " << tpr <<  endl;
+		// log_file << "fpr : " << fpr <<  endl;
+		// log_file << "acc : " << acc <<  endl;
 		tpr_list.at<PRESISSION>(ind,0) = tpr;
 		fpr_list.at<PRESISSION>(ind,0) = fpr;
 		acc_list.at<PRESISSION>(ind,0) = acc;
+		// cout << "acc is : "<< acc << endl;
 	}
-	// transpose(fpr_list,fpr_list);
-	// transpose(tpr_list,tpr_list);
-	// cout << "tpr_list : " << tpr_list << endl;
-	// cout << "fpr_list : " << fpr_list << endl;
-	cout << "acc_list : " << acc_list << endl;
+	// log_file << "tpr_list : " << tpr_list << endl;
+	// log_file << "fpr_list : " << fpr_list << endl;
+	// transpose(acc_list,acc_list);
+	// log_file << "acc_list : " << acc_list << endl;
 	plot2D(tpr_list,fpr_list,acc_list);
 
 	fin.close();
@@ -171,7 +187,7 @@ int genrate_roc_data(const PRESISSION thresh,size_t pos_count,size_t neg_count,M
 	ACC = (TP+TN)/(pos_count + neg_count);
 }
 
-int make_image_pair(string dir){
+int make_image_pair(int argc, char* argv[]){
 	// attain two dir pointer
 	// read one file and start from next file and 
 	// make combinations for each file.
@@ -187,6 +203,7 @@ int make_image_pair(string dir){
 	vector<Mat> images;
 	Size size(100,100);
 	float r_val;
+	string dir(argv[1]);
 
 	// cout << "dir to get files of: " << flush;
 	// getline( cin, dir );  // gets everything the user ENTERs
@@ -201,6 +218,8 @@ int make_image_pair(string dir){
 	outfile.open(dir+".txt",ofstream::out | ofstream::trunc);
 
 	int max_lib = 100;
+	if(argc == 3)
+		max_lib = atoi(argv[2]);
 	int lib_count= 0;
 
 	//making an image library:
@@ -283,7 +302,7 @@ int make_image_pair(string dir){
 				image_2 = imread(filepath2.c_str(), 1);
 				resize(image_2, image_2, size);
 
-				if((code = relevanceMeasure(image_1,image_2,&images, lib_count,&r_val,&mutual_information)) != 0){
+				if((code = relevanceMeasure(image_1,image_2,&images, lib_count,&r_val,&cross_correlation)) != 0){
 					printf("ERROR in  relevanceMeasure %d \n",code);
 					continue;
 				}
@@ -341,6 +360,30 @@ int test(int argc, char** argv){
 	}
 	cout << "relevance : " << relevance << endl;
 	waitKey(0);
+
+	return 0;
+}
+
+int test_matchTemplate(int argc,char** argv){
+	
+	if(argc < 3){
+		cerr << "Error: need two image paths";
+		return -1;
+	}
+
+	Mat image_1,image_2,img;
+	Size size(100,100);//the dst image size,e.g.100x100
+
+	image_1 = imread(argv[1], 1);
+	resize(image_1, image_1, size);
+
+	image_2 = imread(argv[2], 1);
+	resize(image_2, image_2, size);
+
+	Mat op;
+	matchTemplate(image_1,image_2,op,CV_TM_CCORR_NORMED);
+
+	cout << "output : " << op.at<PRESISSION>(0,0) << endl;
 
 	return 0;
 }
