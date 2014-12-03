@@ -39,6 +39,8 @@ int plot2D(Mat &x,Mat &y,Mat& z);
 
 // PlotManager pm;
 
+#define SIM_MAT SSIM
+
 ofstream log_file;
 
 // #define cout log_file
@@ -52,9 +54,10 @@ int main(int argc, char** argv) {
 	if(DEBUG)
 		cout << "int bytes : " << sizeof(unsigned int)<< endl;
 
+	make_image_pair(argc, argv);
 	evaluate_pairs(argc,argv);
 	// test(argc,argv);
-	// make_image_pair(argc, argv);
+	
 	// pm();
 
 	// test_matchTemplate(argc,argv);
@@ -218,15 +221,17 @@ int make_image_pair(int argc, char* argv[]){
 	outfile.open(dir+".txt",ofstream::out | ofstream::trunc);
 
 	int max_lib = 100;
-	if(argc == 3)
-		max_lib = atoi(argv[2]);
+	// if(argc == 3)
+	// 	max_lib = atoi(argv[2]);
 	int lib_count= 0;
 
 	//making an image library:
 	while (lib_count <= max_lib){
 		if(!(dirp = readdir(dp))){
-			cerr << "Unable to make image lib" << endl;
-			exit(0);
+			cerr << "max_lib : " << max_lib << endl;
+			cerr << "Unable to make image lib " << endl;
+			// exit(0);
+			// break;
 		}
 		filepath = dir + "/" + dirp->d_name;
 		// If the file is a directory (or is in some way invalid) we'll skip it 
@@ -288,7 +293,7 @@ int make_image_pair(int argc, char* argv[]){
 				image_2 = imread(filepath2.c_str(), 1);
 				resize(image_2, image_2, size);
 
-				if((code = relevanceMeasure(image_1,image_2,&images, lib_count,&r_val,&mutual_information)) != 0){
+				if((code = relevanceMeasure(image_1,image_2,&images, lib_count,&r_val,&SIM_MAT)) != 0){
 					printf("ERROR in  relevanceMeasure %d \n",code);
 					continue;
 				}
@@ -302,7 +307,7 @@ int make_image_pair(int argc, char* argv[]){
 				image_2 = imread(filepath2.c_str(), 1);
 				resize(image_2, image_2, size);
 
-				if((code = relevanceMeasure(image_1,image_2,&images, lib_count,&r_val,&cross_correlation)) != 0){
+				if((code = relevanceMeasure(image_1,image_2,&images, lib_count,&r_val,&SIM_MAT)) != 0){
 					printf("ERROR in  relevanceMeasure %d \n",code);
 					continue;
 				}
@@ -355,7 +360,7 @@ int test(int argc, char** argv){
 	Mat sortedIndex;
 	Mat uList;
 
-	if((code = relevanceMeasure(image_1,image_2,&images, 100,&relevance,&mutual_information)) != 0){
+	if((code = relevanceMeasure(image_1,image_2,&images, 100,&relevance,&SIM_MAT)) != 0){
 		printf("ERROR in  relevanceMeasure %d \n",code);
 	}
 	cout << "relevance : " << relevance << endl;
@@ -381,9 +386,10 @@ int test_matchTemplate(int argc,char** argv){
 	resize(image_2, image_2, size);
 
 	Mat op;
-	matchTemplate(image_1,image_2,op,CV_TM_CCORR_NORMED);
+	float op_float;
+	SIM_MAT(image_1,image_2,&op_float);
 
-	cout << "output : " << op.at<PRESISSION>(0,0) << endl;
+	cout << "output : " << op_float << endl;
 
 	return 0;
 }

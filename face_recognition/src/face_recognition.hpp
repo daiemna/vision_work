@@ -7,7 +7,7 @@
 #include <iostream>
 
 #include "image_stat/image_stat.hpp"
-#include "debuging.h"
+// #include "debuging.h"
 
 using namespace std;
 using namespace cv;

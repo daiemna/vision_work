@@ -1,7 +1,56 @@
 
 #include "image_stat.hpp"
 
-#define DEBUG true
+#define DEBUG false
+
+int image_stat::SSIM_window_wise(Mat image_1, Mat image_2,float *ssim){
+
+	int win_dim = WINDOW_DIMENSION;
+	Mat ssim_vec =Mat::zeros(int(ceilf(image_1.rows/win_dim))* int(ceilf(image_1.cols/win_dim)),1,image_1.type());
+	cout << "ssim_vec size : "<< ssim_vec.total() << endl;
+	return 0;
+}
+
+int image_stat::SSIM(Mat image_1, Mat image_2,float *ssim){
+	Mat gray_1,gray_2,gray_1f,gray_2f;
+	if(image_1.channels()==3)
+		cvtColor(image_1, gray_1, CV_RGB2GRAY);
+	else
+		gray_1 = image_1;
+	if(image_2.channels()==3)
+		cvtColor(image_2, gray_2, CV_RGB2GRAY);
+	else
+		gray_2 = image_2;
+
+	gray_1.convertTo(gray_1f,CV_32F);
+	gray_2.convertTo(gray_2f,CV_32F);
+
+	Mat mean1,std1,mean2,std2;
+	Mat mean1f,std1f,mean2f,std2f;
+	
+	float u1=0, u2=0, sig1=0, sig2=0;
+	meanStdDev(gray_1f,mean1,std1);
+	meanStdDev(gray_2f,mean2,std2);
+
+	mean1.convertTo(mean1f,CV_32F);
+	std1.convertTo(std1f,CV_32F);
+
+	mean2.convertTo(mean2f,CV_32F);
+	std2.convertTo(std2f,CV_32F);
+
+	u1 = mean1f.at<float>(0,0);
+	sig1 = std1f.at<float>(0,0);
+	u2 = mean2f.at<float>(0,0);
+	sig2 = std2f.at<float>(0,0);
+	float sig12;
+	sig12 = sqrt(sig1*sig1 + sig2*sig2);
+	// cross_correlation(image_1,image_2,&sig12);
+	// sig12 = 1;
+
+	*ssim = (4*u1*u2*sig12) / ((u1*u1 + u2*u2) * (sig1*sig1 + sig2*sig2));
+
+	return 0;
+}
 
 int image_stat::mutual_information(Mat image_1,Mat image_2,float *mi){
 	if(DEBUG)
@@ -96,7 +145,7 @@ int image_stat::cross_correlation(Mat image_1,Mat image_2,float *corr){
 		return ERROR_IMAGE_MISALIGNED;
 	}
 	Mat op;
-	matchTemplate(image_1,image_2,op,CV_TM_CCORR_NORMED);
+	matchTemplate(image_1,image_2,op,CV_TM_CCORR);
 
 	*corr = op.at<float>(0,0);
 
