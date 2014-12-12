@@ -27,8 +27,10 @@
 *.out
 *.app
 
+#global ignore folders
+build/
+
+
 #explicit folders
 cvplot_130223/
-face_recognition/aux/
-face_recognition/build/
 graphUtils/

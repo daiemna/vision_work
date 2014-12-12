@@ -1,3 +1,6 @@
 # matlab files
 *.m
 *.fig
+
+#ignore folders
+aux/
