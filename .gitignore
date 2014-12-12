@@ -27,3 +27,8 @@
 *.out
 *.app
 
+#explicit folders
+cvplot_130223/
+face_recognition/aux/
+face_recognition/build/
+graphUtils/
