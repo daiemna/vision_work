@@ -11,7 +11,7 @@
 using namespace cv;
 
 namespace arrow_detection {
-	int preProcessing(Mat frame);
+	int preProcessing(Mat frame,Mat pro_image,double thresh);
 	int segmentation(Mat frame);
 	int featureExteraction(Mat arrow);
 } // arrow_detection
