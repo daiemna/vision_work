@@ -6,14 +6,16 @@
 
 #include <stdio.h>
 #include <opencv2/opencv.hpp>
-#define DEBUG_LOG printf
+
+#include "debuging.hpp"
 
 using namespace cv;
 
 namespace arrow_detection {
-	int preProcessing(Mat frame,Mat pro_image,double thresh);
+	int preProcessing(Mat frame,Mat& pro_image,double thresh=-1,Size ksize=Size(11,11));
 	int segmentation(Mat frame);
 	int featureExteraction(Mat arrow);
+	int otsuThresholding(Mat frame,float& thresh);
 } // arrow_detection
 
 #endif
