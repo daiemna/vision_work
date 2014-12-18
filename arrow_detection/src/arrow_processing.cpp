@@ -7,6 +7,11 @@ int arrow_detection::preProcessing(Mat frame,Mat& pro_image,double thresh,Size k
 	float th = 0;
 	Mat blur_image;
 	GaussianBlur( frame, blur_image, ksize, 0, 0 );
+
+	DEBUG_LOG("Gaussian blur min, max : ");
+	printMinMax(blur_image);
+	// blur_image = frame;
+	viewImage(blur_image,"blured image");
 	if(!blur_image.data){
 		ERROR_LOG("Error in Gaussian Bluring!\n");
 		return -1;
@@ -20,7 +25,11 @@ int arrow_detection::preProcessing(Mat frame,Mat& pro_image,double thresh,Size k
 		thresh = th;
 	}
 	DEBUG_LOG("thresh hold was : %lf\n",(double)th);
-	threshold( blur_image, pro_image, 1, (double)th,THRESH_BINARY);
+	threshold( blur_image, pro_image, 1, (double)th,THRESH_BINARY_INV);
+	DEBUG_LOG("thresholded image min, max : ");
+	printMinMax(pro_image);
+
+	pro_image = pro_image / th;
 	if(!pro_image.data){
 		ERROR_LOG("Error: in preprocessing threshold stage!\n");
 	}
@@ -90,5 +99,52 @@ int arrow_detection::otsuThresholding(Mat frame,float& thresh){
     DEBUG_LOG("the thresh is : %f\n",thresh);
     DEBUG_LOG("the threshold1 : %f\n",threshold1);
     DEBUG_LOG("the threshold2 : %f\n",threshold2);
+    return 0;
+}
+int arrow_detection::findBlobs(const Mat &binary, vector <vector<Point2i>> &blobs,int min_pixel_count){
+    blobs.clear();
+    DEBUG_LOG("Inside findBlobs!\n");
+    // Fill the label_image with the blobs
+    // 0  - background
+    // 1  - unlabelled foreground
+    // 2+ - labelled foreground
+
+    cv::Mat label_image;
+    binary.convertTo(label_image, CV_32SC1);
+    DEBUG_LOG("CV_32SC1 image min,max :");
+    printMinMax(label_image);
+    
+    int label_count = 2; // starts at 2 because 0,1 are used already
+
+    for(int y=0; y < label_image.rows; y++) {
+        int *row = (int*)label_image.ptr(y);
+        for(int x=0; x < label_image.cols; x++) {
+            if(row[x] != 1) {
+                continue;
+            }
+
+            cv::Rect rect;
+            cv::floodFill(label_image, cv::Point(x,y), label_count, &rect, 0, 0, 4);
+
+            std::vector <cv::Point2i> blob;
+
+            for(int i=rect.y; i < (rect.y+rect.height); i++) {
+                int *row2 = (int*)label_image.ptr(i);
+                for(int j=rect.x; j < (rect.x+rect.width); j++) {
+                    if(row2[j] != label_count) {
+                        continue;
+                    }
+
+                    blob.push_back(cv::Point2i(j,i));
+                }
+            }
+            if(blob.size() <= min_pixel_count){
+            	continue;
+            }
+            blobs.push_back(blob);
+
+            label_count++;
+        }
+    }
     return 0;
 }

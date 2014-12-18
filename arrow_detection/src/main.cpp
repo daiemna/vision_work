@@ -14,16 +14,71 @@ int test_thresholding(int argc, char* argv[]);
 int test_otsu_thresholding(int argc, char* argv[]);
 int test_PreProcessing(int argc, char* argv[]);
 int test_blurring(int argc, char* argv[]);
+int test_findBlob(int argc,char* argv[]);
 
 int main(int argc,char* argv[]){
 	DEBUG_LOG("arrow_detection main!\n");
-	// int error = test_thresholding(argc,argv);
-	// int error = test_otsu_thresholding(argc,argv);
-	// int error = test_PreProcessing(argc,argv);
-	int error = test_blurring(argc,argv);
+	// return test_thresholding(argc,argv);
+	// return test_otsu_thresholding(argc,argv);
+	// return test_PreProcessing(argc,argv);
+	// return test_blurring(argc,argv);
+	test_findBlob(argc,argv);
+	while(waitKey(0) != 1048586);
 	return 0;
 }
+int test_findBlob(int argc,char* argv[]){
+	DEBUG_LOG("Inside bluring!\n");
+	if(argc < 2){
+		ERROR_LOG("no image path found in arguments\n");
+		return -1;
+	}
 
+	Mat frame;
+	frame = imread(argv[1],0);
+	if(!frame.data){
+		ERROR_LOG("Cannot open image\n");
+	}
+	if(frame.channels() == 3)
+		cvtColor(frame,frame,CV_RGB2GRAY);
+	DEBUG_STREAM << "frame type: " << frame.type() << endl;
+
+	DEBUG_LOG("frame min, max : ");
+	printMinMax(frame);
+
+    namedWindow("binary",WINDOW_NORMAL);
+    namedWindow("labelled",WINDOW_NORMAL);
+
+    Mat output = Mat::zeros(frame.size(), CV_8UC3);
+
+    Mat binary;
+    vector < std::vector<cv::Point2i > > blobs;
+
+    preProcessing(frame, binary);
+
+    findBlobs(binary, blobs);
+
+    // Randomy color the blobs
+    for(size_t i=0; i < blobs.size(); i++) {
+        unsigned char r = 255 * (rand()/(1.0 + RAND_MAX));
+        unsigned char g = 255 * (rand()/(1.0 + RAND_MAX));
+        unsigned char b = 255 * (rand()/(1.0 + RAND_MAX));
+
+        for(size_t j=0; j < blobs[i].size(); j++) {
+            int x = blobs[i][j].x;
+            int y = blobs[i][j].y;
+
+            output.at<Vec3b>(y,x)[0] = b;
+            output.at<Vec3b>(y,x)[1] = g;
+            output.at<Vec3b>(y,x)[2] = r;
+        }
+    }
+    viewImage(frame,"original iamge");
+    imshow("binary", binary*255);
+    imshow("labelled", output);
+    // waitKey(0);
+
+    return 0;
+}
 int test_blurring(int argc, char* argv[]){
 	DEBUG_LOG("Inside bluring\n!");
 	if(argc < 2){
@@ -89,7 +144,7 @@ int test_PreProcessing(int argc, char* argv[]){
 	namedWindow("pre_processed_image",WINDOW_NORMAL);
 	imshow("pre_processed_image",bin_image);
 
-	waitKey(0);
+	// waitKey(0);
 	return 0;
 }
 
@@ -140,7 +195,7 @@ int test_thresholding(int argc, char* argv[]){
 			thresh++;
 			if(thresh > 255)
 				thresh = 255;
-		}else 	if(key == 1114029){
+		}else if(key == 1114029){
 			thresh--;
 			if (thresh < 0)
 				thresh = 0;
@@ -149,3 +204,9 @@ int test_thresholding(int argc, char* argv[]){
 	}
 	return 0;
 }
+
+
+
+
+
+
