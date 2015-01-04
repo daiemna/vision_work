@@ -13,11 +13,11 @@ using namespace cv;
 using namespace cv_debuging;
 
 namespace arrow_detection {
-	int preProcessing(Mat frame,Mat& pro_image,double thresh=-1,Size ksize=Size(21,21));
-	int segmentation(Mat frame);
-	int featureExteraction(Mat arrow);
-	int otsuThresholding(Mat frame,float& thresh);
-	int findBlobs(const Mat &binary, vector <vector<Point2i>> &blobs,int min_pixel_count=0);
+	int preProcessing(Mat frame,Mat& pro_image,double thresh=-1,Size ksize=Size(51,51));
+	int segmentation(Mat binary_image,vector<Rect> &objects, vector <vector<Point2i>> &blobs);
+	int featureExteraction(Mat arrow,vector<float> &features);
+	/*int otsuThresholding(Mat frame,float& thresh);*/
+	int findBlobs(const Mat &binary, vector <vector<Point2i>> &blobs,int min_pixel_count=9000);
 } // arrow_detection
 
 #endif
