@@ -15,7 +15,7 @@ using namespace cv;
 #define ERROR_LOG printf
 
 namespace cv_debuging {
-	int viewImage(Mat frame,string name);
+	int viewImage(Mat frame,string name="debuging");
 	int printMinMax(Mat image);
 } // debuging
 
