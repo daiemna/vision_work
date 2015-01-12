@@ -27,6 +27,7 @@ int extract_features(int argc,char* argv[]);
 int arrow_recognition(int argc,char* argv[]);
 void find_arrow(Mat frame, Mat left_means,Mat right_means, Mat non_means);
 int classify_arrow(Mat left_means,Mat right_means,Mat non_means,Mat blob_features);
+bool countNonZeroInCol(Mat frame,int from_col,int to_col,int thre);
 
 int main(int argc,char* argv[]){
 	DEBUG_LOG("arrow_detection main!\n");
@@ -109,13 +110,13 @@ int arrow_recognition(int argc,char* argv[]){
 	VideoCapture cap(0); // open the default camera
     if(!cap.isOpened()){  // check if we succeeded
     	ERROR_LOG("Unable to open Video Cam");
-        return -1;
+    	return -1;
     }
     Mat edges;
     namedWindow("live feed",1);
     for(;;)
     {
-        Mat frame;
+    	Mat frame;
         cap >> frame; // get a new frame from camera
         // cvtColor(frame, edges, COLOR_BGR2GRAY);
         // GaussianBlur(edges, edges, Size(7,7), 1.5, 1.5);
@@ -139,29 +140,47 @@ void find_arrow(Mat frame, Mat left_means,Mat right_means, Mat non_means){
 	}
 
 	preProcessing(gray_frame, binary);
-    segmentation(binary,blobs_roi, blobs);
-    for(int i = 0; i < blobs_roi.size();i++){
-    	Mat blob(gray_frame,blobs_roi[i]),blob_feat(1,4,CV_32F);
-    	vector<float> blob_features;
-    	if(featureExteraction(blob,blob_features) < 0){
-    		continue;
-    	}
-    	blob_feat.at<float>(0) = blob_features[0];
-    	blob_feat.at<float>(1) = blob_features[1];
-    	blob_feat.at<float>(2) = blob_features[2];
-    	blob_feat.at<float>(3) = blob_features[3];
-    	int blob_label = classify_arrow(left_means,right_means,non_means,blob_feat);
-    	if(blob_label == 2){
-    		rectangle(frame,blobs_roi[i],Scalar(0,255,0));
-    	}else if(blob_label == 1){
-    		rectangle(frame,blobs_roi[i],Scalar(0,0,255));
-    	}
-    }
+	segmentation(binary,blobs_roi, blobs);
+	for(int i = 0; i < blobs_roi.size();i++){
+		Mat blob(gray_frame,blobs_roi[i]),blob_feat(1,4,CV_32F);
+		vector<float> blob_features;
+		if(featureExteraction(blob,blob_features) < 0){
+			continue;
+		}
+		blob_feat.at<float>(0) = blob_features[0];
+		blob_feat.at<float>(1) = blob_features[1];
+		blob_feat.at<float>(2) = blob_features[2];
+		blob_feat.at<float>(3) = blob_features[3];
+		int blob_label = classify_arrow(left_means,right_means,non_means,blob_feat);
+		if(blob_label == 2 || blob_label == 1){
+			Mat bin_blob(binary,blobs_roi[i]);
+
+			// DEBUG_LOG("________different blob___________\n");
+			if(countNonZeroInCol(bin_blob,0,3,10)){
+				rectangle(frame,blobs_roi[i],Scalar(0,255,0));
+				putText(frame, "Left", Point(blobs_roi[i].x,blobs_roi[i].y), FONT_HERSHEY_SIMPLEX, 1, Scalar(0,255,0));
+			}else if(countNonZeroInCol(bin_blob,bin_blob.cols-4,bin_blob.cols-1,10)){
+				rectangle(frame,blobs_roi[i],Scalar(0,0,255));
+				putText(frame, "Right", Point(blobs_roi[i].x,blobs_roi[i].y), FONT_HERSHEY_SIMPLEX, 1, Scalar(0,0,255));
+			}
+		}
+	}
+}
+bool countNonZeroInCol(Mat frame,int init,int end,int threshold){
+	// int init = from_col > to_col ? to_col : from_col;
+	// int end = from_col < to_col ? to_col : from_col;
+	for(int i = init; i <= end; i++){
+		// DEBUG_LOG("col #%d countNonZero : %d\n",i,countNonZero(frame.col(i)));
+		if(countNonZero(frame.col(i)) > threshold){
+			return false;
+		}
+	}
+	return true;
 }
 int classify_arrow(Mat left_means,Mat right_means,Mat non_means,Mat blob_features){
-	double dist_left = norm(left_means,blob_features,NORM_L2);
-	double dist_right = norm(right_means,blob_features,NORM_L2);
-	double dist_non = norm(non_means,blob_features,NORM_L2);
+	double dist_left = norm(left_means,blob_features,NORM_INF);
+	double dist_right = norm(right_means,blob_features,NORM_INF);
+	double dist_non = norm(non_means,blob_features,NORM_INF);
 	if(dist_left < dist_right && dist_left < dist_non){
 		return 1;
 	}else if(dist_right < dist_left && dist_right < dist_non){
@@ -189,11 +208,11 @@ int extract_features(int argc,char* argv[]){
 		return errno;
 	}
 	out_file.open(argv[2]);
-  	if(!out_file.is_open()){
-  		ERROR_LOG("Cannot open file %s\n",argv[2]);
-  		return -1;
-  	}
-  	out_file << "file_path" <<delm<<"label"<<delm<<"feature_1"<<delm<<"feature_2"<<delm<<"feature_3"<<delm<<"feature_4"<<delm << endl;
+	if(!out_file.is_open()){
+		ERROR_LOG("Cannot open file %s\n",argv[2]);
+		return -1;
+	}
+	out_file << "file_path" <<delm<<"label"<<delm<<"feature_1"<<delm<<"feature_2"<<delm<<"feature_3"<<delm<<"feature_4"<<delm << endl;
 	while((dirp = readdir( dp ))){
 		string filepath = dir + "/" + dirp->d_name;
 
@@ -290,24 +309,24 @@ int extract_blobs(int argc,char* argv[]){
 		DEBUG_LOG("reading file %s\n",filepath.c_str());
 		Mat frame,binary,color_frame;
 		vector < std::vector<cv::Point2i > > blobs;
-    	vector<Rect> blobs_roi;
+		vector<Rect> blobs_roi;
 
-    	color_frame = imread(filepath.c_str(),CV_LOAD_IMAGE_COLOR);
+		color_frame = imread(filepath.c_str(),CV_LOAD_IMAGE_COLOR);
 		frame = imread(filepath.c_str(),CV_LOAD_IMAGE_GRAYSCALE);
 		preProcessing(frame, binary);
-    	segmentation(binary,blobs_roi, blobs);
-    	int num = 1;
-    	for(Rect blob_roi : blobs_roi){
+		segmentation(binary,blobs_roi, blobs);
+		int num = 1;
+		for(Rect blob_roi : blobs_roi){
     		// Size sz(blob_roi.width,blob_roi.height);
     		// Point ofs(blob_roi.x,blob_roi.y);
-    		Mat sub_image(color_frame,blob_roi);
+			Mat sub_image(color_frame,blob_roi);
     		// ostringstream convert;
     		// convert << num;
-    		op_filename = outdir+"/Clip_"+ to_string(frame_num)+to_string(num) +".jpg";
-    		imwrite(op_filename.c_str(),sub_image);
-    		num++;
-    	}
-    	frame_num++;
+			op_filename = outdir+"/Clip_"+ to_string(frame_num)+to_string(num) +".jpg";
+			imwrite(op_filename.c_str(),sub_image);
+			num++;
+		}
+		frame_num++;
 	}
 	closedir( dp );
 }
@@ -332,39 +351,39 @@ int test_findBlob(int argc,char* argv[]){
 	DEBUG_LOG("frame min, max : ");
 	printMinMax(frame);
 
-    namedWindow("binary",WINDOW_NORMAL);
-    namedWindow("labelled",WINDOW_NORMAL);
+	namedWindow("binary",WINDOW_NORMAL);
+	namedWindow("labelled",WINDOW_NORMAL);
 
-    Mat output = Mat::zeros(frame.size(), CV_8UC3);
+	Mat output = Mat::zeros(frame.size(), CV_8UC3);
 
-    Mat binary;
-    vector < std::vector<cv::Point2i > > blobs;
-    vector<Rect> blobs_roi;
+	Mat binary;
+	vector < std::vector<cv::Point2i > > blobs;
+	vector<Rect> blobs_roi;
 
-    preProcessing(frame, binary);
-    segmentation(binary,blobs_roi, blobs);
+	preProcessing(frame, binary);
+	segmentation(binary,blobs_roi, blobs);
     // Randomy color the blobs
-    for(size_t i=0; i < blobs.size(); i++) {
-        unsigned char r = 255 * (rand()/(1.0 + RAND_MAX));
-        unsigned char g = 255 * (rand()/(1.0 + RAND_MAX));
-        unsigned char b = 255 * (rand()/(1.0 + RAND_MAX));
+	for(size_t i=0; i < blobs.size(); i++) {
+		unsigned char r = 255 * (rand()/(1.0 + RAND_MAX));
+		unsigned char g = 255 * (rand()/(1.0 + RAND_MAX));
+		unsigned char b = 255 * (rand()/(1.0 + RAND_MAX));
 
-        for(size_t j=0; j < blobs[i].size(); j++) {
-            int x = blobs[i][j].x;
-            int y = blobs[i][j].y;
+		for(size_t j=0; j < blobs[i].size(); j++) {
+			int x = blobs[i][j].x;
+			int y = blobs[i][j].y;
 
-            output.at<Vec3b>(y,x)[0] = b;
-            output.at<Vec3b>(y,x)[1] = g;
-            output.at<Vec3b>(y,x)[2] = r;
-        }
-        rectangle(frame, blobs_roi[i],Scalar(255,0,0));
-    }
-    viewImage(frame,"original iamge");
-    imshow("binary", binary*255);
-    imshow("labelled", output);
+			output.at<Vec3b>(y,x)[0] = b;
+			output.at<Vec3b>(y,x)[1] = g;
+			output.at<Vec3b>(y,x)[2] = r;
+		}
+		rectangle(frame, blobs_roi[i],Scalar(255,0,0));
+	}
+	viewImage(frame,"original iamge");
+	imshow("binary", binary*255);
+	imshow("labelled", output);
     // waitKey(0);
 
-    return 0;
+	return 0;
 }
 int test_blurring(int argc, char* argv[]){
 	DEBUG_LOG("Inside bluring\n!");
@@ -461,46 +480,46 @@ int test_PreProcessing(int argc, char* argv[]){
 	}
 }*/
 
-int test_thresholding(int argc, char* argv[]){
-	DEBUG_LOG("Inside test_thresholding!");
-	if(argc < 2){
-		ERROR_LOG("no image path found in arguments\n");
-		return -1;
-	}
-
-	Mat frame, bin_image;
-	frame = imread(argv[1],0);
-	if(!frame.data){
-		ERROR_LOG("Cannot open image\n");
-	}
-	if(frame.channels() >= 3){
-		cvtColor(frame,frame,CV_RGB2GRAY);
-	}
-	DEBUG_STREAM << "frame type: " << frame.type() << endl;
-
-	namedWindow( "RESULT", WINDOW_NORMAL );
-	int key = 0;
-	double thresh = 0;
-	while((key = waitKey(0)) != 1048586){
-		DEBUG_STREAM << "key was : " << key << endl;
-		threshold( frame, bin_image, 0, thresh,THRESH_BINARY_INV);
-		DEBUG_LOG("min max binary image: ");
-		printMinMax(bin_image);
-		if(bin_image.data)
-			imshow( "RESULT", bin_image);
-		if(key == 1114027){
-			thresh++;
-			if(thresh > 255)
-				thresh = 255;
-		}else if(key == 1114029){
-			thresh--;
-			if (thresh < 0)
-				thresh = 0;
+	int test_thresholding(int argc, char* argv[]){
+		DEBUG_LOG("Inside test_thresholding!");
+		if(argc < 2){
+			ERROR_LOG("no image path found in arguments\n");
+			return -1;
 		}
-		DEBUG_STREAM << "Threshhold is: " << thresh << endl;
+
+		Mat frame, bin_image;
+		frame = imread(argv[1],0);
+		if(!frame.data){
+			ERROR_LOG("Cannot open image\n");
+		}
+		if(frame.channels() >= 3){
+			cvtColor(frame,frame,CV_RGB2GRAY);
+		}
+		DEBUG_STREAM << "frame type: " << frame.type() << endl;
+
+		namedWindow( "RESULT", WINDOW_NORMAL );
+		int key = 0;
+		double thresh = 0;
+		while((key = waitKey(0)) != 1048586){
+			DEBUG_STREAM << "key was : " << key << endl;
+			threshold( frame, bin_image, 0, thresh,THRESH_BINARY_INV);
+			DEBUG_LOG("min max binary image: ");
+			printMinMax(bin_image);
+			if(bin_image.data)
+				imshow( "RESULT", bin_image);
+			if(key == 1114027){
+				thresh++;
+				if(thresh > 255)
+					thresh = 255;
+			}else if(key == 1114029){
+				thresh--;
+				if (thresh < 0)
+					thresh = 0;
+			}
+			DEBUG_STREAM << "Threshhold is: " << thresh << endl;
+		}
+		return 0;
 	}
-	return 0;
-}
 
 
 
