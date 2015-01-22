@@ -25,10 +25,12 @@ int test_feature_extraction(int argc,char* argv[]);
 int extract_features(int argc,char* argv[]);
 int arrow_recognition(int argc,char* argv[]);
 void find_arrow(Mat frame, Mat left_means,Mat right_means, Mat non_means);
-int classify_arrow(Mat left_means,Mat right_means,Mat non_means,Mat blob_features);
+int detect_arrow(Mat left_means,Mat right_means,Mat non_means,Mat blob_features);
+int classify_arrow(Mat bin_blob);
 bool countNonZeroInCol(Mat frame,int from_col,int to_col,int thre);
 bool hasHole(Mat arrow_rect);
 int find_arrow_in_sceen(int argc,char* argv[]);
+int gentate_roc_data(int argc,char* argv[]);
 
 int main(int argc,char* argv[]){
 	DEBUG_LOG("arrow_detection main!\n");
@@ -40,13 +42,120 @@ int main(int argc,char* argv[]){
 	// extract_blobs(argc,argv);
 	// test_feature_extraction(argc,argv);
 	// extract_features(argc,argv);
-	arrow_recognition(argc,argv);
+	// arrow_recognition(argc,argv);
 	// find_arrow_in_sceen(argc,argv);
+	gentate_roc_data(argc,argv);
 	int key;
 	while((key = waitKey(0)) != 1048586){
 		DEBUG_STREAM << "key was : "<<key <<endl;
 	}
 	return 0;
+}
+int gentate_roc_data(int argc,char* argv[]){
+	if(argc != 4){
+		ERROR_LOG("please enter in put and output .csv files!\n");
+		return -1;
+	}
+	ifstream in_file;
+	in_file.open(argv[1]);
+	if(!in_file.is_open()){
+		ERROR_LOG("Unable to open .csv file");
+		return -1;
+	}
+	string filepath;
+	int label;
+	float feat_1,feat_2,feat_3,feat_4;
+	// double mean_1,mean_2,mean_3,mean_4;
+	Mat left_arrow_means(1,4,CV_32F);
+	Mat right_arrow_means(1,4,CV_32F);
+	Mat non_arrow_means(1,4,CV_32F);
+	float left_count =0;
+	float right_count =0;
+	float non_count =0;
+	getline(in_file,filepath);
+	while(!in_file.eof()){
+		in_file >> filepath >> label >> feat_1 >> feat_2 >> feat_3 >> feat_4;
+		// DEBUG_STREAM << filepath <<": "<< label << endl;
+		if(label == 1){
+			left_count++;
+			left_arrow_means.at<float>(0) = left_arrow_means.at<float>(0) + feat_1;
+			left_arrow_means.at<float>(1) = left_arrow_means.at<float>(1) + feat_2;
+			left_arrow_means.at<float>(2) = left_arrow_means.at<float>(2) + feat_3;
+			left_arrow_means.at<float>(3) = left_arrow_means.at<float>(3) + feat_4;
+		}else if(label == 2){
+			right_count++;
+			right_arrow_means.at<float>(0) = right_arrow_means.at<float>(0) + feat_1;
+			right_arrow_means.at<float>(1) = right_arrow_means.at<float>(1) + feat_2;
+			right_arrow_means.at<float>(2) = right_arrow_means.at<float>(2) + feat_3;
+			right_arrow_means.at<float>(3) = right_arrow_means.at<float>(3) + feat_4;
+		}else{
+			non_count++;
+			non_arrow_means.at<float>(0) = non_arrow_means.at<float>(0) + feat_1;
+			non_arrow_means.at<float>(1) = non_arrow_means.at<float>(1) + feat_2;
+			non_arrow_means.at<float>(2) = non_arrow_means.at<float>(2) + feat_3;
+			non_arrow_means.at<float>(3) = non_arrow_means.at<float>(3) + feat_4;
+		}
+	}
+	left_arrow_means = left_arrow_means/left_count;
+
+	right_arrow_means = right_arrow_means/right_count;
+
+	non_arrow_means = non_arrow_means/non_count;
+
+	DEBUG_LOG("left arrows : %f\n",left_count);
+	DEBUG_LOG("right arrows : %f\n",right_count);
+	DEBUG_LOG("non arrows : %f\n",non_count);
+
+	in_file.close();
+	ifstream lable_file;
+	lable_file.open(argv[2]);
+	ofstream out_file;
+	out_file.open(argv[3]);
+	out_file << "original_lable" << " classified_lable" << endl;
+ 	DEBUG_LOG("Reading file : %s\n",argv[2]);
+ 	string file_path;
+ 	int file_lable;
+ 	getline(lable_file, file_path);
+ 	// lable_file >> file_lable;
+ 	while(!lable_file.eof()){
+ 		lable_file >> file_path >> file_lable;
+ 		DEBUG_LOG("imread reading file %s lable is %d\n",file_path.c_str(),file_lable);
+		Mat frame = imread(file_path,CV_LOAD_IMAGE_GRAYSCALE);
+		if(!frame.data){
+			ERROR_LOG("ERROR reading file %s !\n",file_path.c_str());
+			continue;
+		}
+		Mat binary,gray_frame;
+		vector < std::vector<cv::Point2i > > blobs;
+		vector<Rect> blobs_roi;
+		int i= 0;
+		preProcessing(frame, binary);
+		segmentation(binary,blobs_roi, blobs);
+		if(blobs_roi.size() == 0){
+			ERROR_LOG("File %s has no blobs !\n",file_path.c_str());
+			continue;
+		}
+		Mat blob(frame,blobs_roi[i]),blob_feat(1,4,CV_32F);
+		vector<float> blob_features;
+		if(featureExteraction(blob,blob_features) < 0){
+			ERROR_LOG("File %s has more than one blobs !\n",file_path.c_str());
+			continue;
+		}
+		blob_feat.at<float>(0) = blob_features[0];
+		blob_feat.at<float>(1) = blob_features[1];
+		blob_feat.at<float>(2) = blob_features[2];
+		blob_feat.at<float>(3) = blob_features[3];
+		int blob_label = detect_arrow(left_arrow_means,right_arrow_means,non_arrow_means,blob_feat);
+		if(blob_label == LEFT_ARROW_CLASS || blob_label == RIGHT_ARROW_CLASS){
+			Mat bin_blob(binary,blobs_roi[i]);
+			int arrow_class = classify_arrow(bin_blob);
+			out_file << file_lable << " " << arrow_class << endl;
+		}
+	}
+	lable_file.close();
+	out_file.close();
+    return 0;
+
 }
 
 int find_arrow_in_sceen(int argc,char* argv[]){
@@ -225,26 +334,34 @@ void find_arrow(Mat frame, Mat left_means,Mat right_means, Mat non_means){
 		blob_feat.at<float>(1) = blob_features[1];
 		blob_feat.at<float>(2) = blob_features[2];
 		blob_feat.at<float>(3) = blob_features[3];
-		int blob_label = classify_arrow(left_means,right_means,non_means,blob_feat);
+		int blob_label = detect_arrow(left_means,right_means,non_means,blob_feat);
 		if(blob_label == 2 || blob_label == 1){
 			Mat bin_blob(binary,blobs_roi[i]);
-			if(hasHole(bin_blob)){
+			int arrow_class = classify_arrow(bin_blob);
+			if(arrow_class == NON_ARROW_CLASS){
 				continue;
 			}
-			// DEBUG_LOG("________different blob___________\n");
-			// DEBUG_STREAM << "BLOBS rect " << blobs_roi[i] << endl;
-			if(countNonZeroInCol(bin_blob,0,3,11)){
-				// DEBUG_LOG("its Left!\n");
+			if(arrow_class == LEFT_ARROW_CLASS){
 				rectangle(frame,blobs_roi[i],Scalar(0,255,0));
 				putText(frame, "Left", Point(blobs_roi[i].x,blobs_roi[i].y), FONT_HERSHEY_SIMPLEX, 1, Scalar(0,255,0));
-			}else if(countNonZeroInCol(bin_blob,bin_blob.cols-4,bin_blob.cols-1,11)){
-				// DEBUG_LOG("its Right!\n");
+			}else if(arrow_class == RIGHT_ARROW_CLASS){
 				rectangle(frame,blobs_roi[i],Scalar(0,0,255));
 				putText(frame, "Right", Point(blobs_roi[i].x,blobs_roi[i].y), FONT_HERSHEY_SIMPLEX, 1, Scalar(0,0,255));
 			}
 		}
 	}
 	viewImage(frame,"Arrow Found");
+}
+int classify_arrow(Mat bin_blob){
+	if(hasHole(bin_blob)){
+		return NON_ARROW_CLASS;
+	}
+	if(countNonZeroInCol(bin_blob,0,3,11)){
+		return LEFT_ARROW_CLASS;
+	}else if(countNonZeroInCol(bin_blob,bin_blob.cols-4,bin_blob.cols-1,11)){
+		return RIGHT_ARROW_CLASS;
+	}
+	return NON_ARROW_CLASS;	
 }
 bool countNonZeroInCol(Mat frame,int init,int end,int threshold){
 	// int init = from_col > to_col ? to_col : from_col;
@@ -277,7 +394,7 @@ bool hasHole(Mat arrow_rect){
 	}
 	return false;
 }
-int classify_arrow(Mat left_means,Mat right_means,Mat non_means,Mat blob_features){
+int detect_arrow(Mat left_means,Mat right_means,Mat non_means,Mat blob_features){
 	double dist_left = norm(left_means,blob_features,NORM_INF);
 	double dist_right = norm(right_means,blob_features,NORM_INF);
 	double dist_non = norm(non_means,blob_features,NORM_INF);
