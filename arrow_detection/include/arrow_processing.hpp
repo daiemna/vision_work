@@ -13,6 +13,9 @@ using namespace cv;
 using namespace cv_debuging;
 
 namespace arrow_detection {
+	#define LEFT_ARROW_CLASS 1
+	#define RIGHT_ARROW_CLASS 2
+	#define NON_ARROW_CLASS 0
 	int preProcessing(Mat frame,Mat& pro_image,double thresh=-1,Size filterSize=Size(51,51));
 	int segmentation(Mat binary_image,vector<Rect> &objects, vector <vector<Point2i>> &blobs);
 	int featureExteraction(Mat arrow,vector<float> &features);
