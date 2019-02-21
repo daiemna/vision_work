@@ -1,0 +1,2 @@
+/home/dna/CV_workspace/arrow_detection/build/CMakeFiles/Main.dir
+/home/dna/CV_workspace/arrow_detection/build/CMakeFiles/_pedistrian_detection.dir
